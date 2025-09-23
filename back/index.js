@@ -4,7 +4,24 @@ import pkg from "@prisma/client";
 const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
 
+const setCors = (res) => {
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173"); // ton front Vite
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+};
+
 const server = http.createServer(async (req, res) => {
+  setCors(res);
+
+  // Gérer les requêtes OPTIONS pour CORS
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
   // liste étudiant
   if (req.url === "/students" && req.method === "GET") {
     const students = await prisma.student.findMany();
