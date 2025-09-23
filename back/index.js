@@ -1,11 +1,15 @@
 import http from "http";
-import pkg from "@prisma/client";
-
-const { PrismaClient } = pkg;
-const prisma = new PrismaClient();
+import { register, login } from "./controllers/authController.js";
+import {
+  getStudents,
+  createStudent,
+  getStudentById,
+  updateStudent,
+  deleteStudent,
+} from "./controllers/studentController.js";
 
 const setCors = (res) => {
-  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173"); // ton front Vite
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
   res.setHeader(
     "Access-Control-Allow-Methods",
     "GET, POST, PUT, DELETE, OPTIONS"
@@ -16,104 +20,36 @@ const setCors = (res) => {
 const server = http.createServer(async (req, res) => {
   setCors(res);
 
-  // Gérer les requêtes OPTIONS pour CORS
   if (req.method === "OPTIONS") {
     res.writeHead(204);
     res.end();
     return;
   }
-  // liste étudiant
-  if (req.url === "/students" && req.method === "GET") {
-    const students = await prisma.student.findMany();
 
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(students));
+  // Auth
+  if (req.url === "/auth/register" && req.method === "POST")
+    return register(req, res);
+  if (req.url === "/auth/login" && req.method === "POST")
+    return login(req, res);
+
+  // Students
+  if (req.url === "/students" && req.method === "GET")
+    return getStudents(req, res);
+  if (req.url === "/students" && req.method === "POST")
+    return createStudent(req, res);
+
+  if (req.url.startsWith("/students/")) {
+    const id = req.url.split("/")[2];
+    if (req.method === "GET") return getStudentById(req, res, id);
+    if (req.method === "PUT") return updateStudent(req, res, id);
+    if (req.method === "DELETE") return deleteStudent(req, res, id);
   }
 
-  // ajout étudent
-  else if (req.url === "/students" && req.method === "POST") {
-    let body = "";
-    req.on("data", (chunk) => {
-      body += chunk.toString();
-    });
-    req.on("end", async () => {
-      const { name, email } = JSON.parse(body);
-
-      const student = await prisma.student.create({ data: { name, email } });
-
-      res.writeHead(201, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(student));
-    });
-  }
-  // obtenir un étudiant par ID
-  else if (req.url.startsWith("/students/") && req.method === "GET") {
-    const id = parseInt(req.url.split("/")[2]);
-
-    try {
-      const student = await prisma.student.findUnique({
-        where: { id },
-      });
-
-      if (!student) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Étudiant non trouvé" }));
-      } else {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(student));
-      }
-    } catch (error) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Erreur serveur" }));
-    }
-  }
-  // mettre à jour un étudiant par ID
-  else if (req.url.startsWith("/students/") && req.method === "PUT") {
-    let body = "";
-    const id = parseInt(req.url.split("/")[2]);
-
-    req.on("data", (chunk) => {
-      body += chunk.toString();
-    });
-    req.on("end", async () => {
-      const { name, email } = JSON.parse(body);
-
-      try {
-        const updatedStudent = await prisma.student.update({
-          where: { id },
-          data: { name, email },
-        });
-
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(updatedStudent));
-      } catch (error) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Étudiant non trouvé" }));
-      }
-    });
-  }
-  // supprimer un étudiant par ID
-  else if (req.url.startsWith("/students/") && req.method === "DELETE") {
-    const id = parseInt(req.url.split("/")[2]);
-
-    try {
-      const deletedStudent = await prisma.student.delete({
-        where: { id },
-      });
-
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ message: "Étudiant supprimé", deletedStudent }));
-    } catch (error) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Étudiant non trouvé" }));
-    }
-  }
-  // route non trouvée
-  else {
-    res.writeHead(404, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Route non trouvée" }));
-  }
+  // fallback
+  res.writeHead(404, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ error: "Route non trouvée" }));
 });
 
 server.listen(5000, () => {
-  console.log("serveur demarré sur http://localhost:5000");
+  console.log("Serveur démarré sur http://localhost:5000");
 });
